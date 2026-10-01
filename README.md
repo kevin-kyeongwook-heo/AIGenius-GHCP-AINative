@@ -46,7 +46,7 @@ IDEA
 
 ### 시작하기
 
-1. 이 Repo를 본인 GitHub 계정으로 **Fork** 하세요 (페이지 오른쪽 상단).
+1. 이 Repo를 **본인 GitHub 계정**으로 **Fork** 하세요 (페이지 오른쪽 상단).
 
 2. 포크한 Repo를 로컬에 **Clone** 하세요:
    ```bash
