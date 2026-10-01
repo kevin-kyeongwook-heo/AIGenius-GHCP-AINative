@@ -219,6 +219,10 @@ def add(name: str, priority: str, description: str, due: str | None, tag: tuple[
             sys.exit(1)
 
     tasks = load_tasks()
+    if any(task.get("name") == name for task in tasks):
+        console.print(f"[red]Error: A task named '{name}' already exists.[/red]")
+        sys.exit(1)
+
     task: dict = {
         "id": next_id(tasks),
         "name": name,
