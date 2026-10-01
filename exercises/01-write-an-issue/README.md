@@ -28,7 +28,7 @@ Copilot을 위해 잘 작성된 이슈에는 다음 요소가 포함됩니다:
 
 ## 실습 과제 (Your Task)
 
-1. 이 Repo의 **Issues** 탭으로 이동합니다.
+1. 이 Repo의 **Issues** 탭으로 이동합니다. (**Issues** 탭이 안보이는 경우 Github Repository 페이지 상단 메뉴 **Settings** > **Features** > **Issues** 체크박스를 Enable 한다)
 2. **New issue** 를 클릭하고 **Feature Request** 템플릿을 선택합니다.
 3. 다음 기능 중 하나에 대한 이슈를 작성하세요:
 
