@@ -17,23 +17,34 @@ GitHub Copilot을 활용한 AI 네이티브 워크플로우 확장을 보여주�
     python app.py stats
 """
 
-import json
 import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from typing import cast
 
 import click
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from ai import TagSuggestionError, suggest_tag
+from storage import (
+    AzureTableTaskRepository,
+    NewTask,
+    StorageConfigurationError,
+    Task,
+    TaskStorageError,
+)
+
+# Retained for compatibility with extensions that import the old constant.
 TASKS_FILE = Path(__file__).resolve().with_name("tasks.json")
 
 PRIORITIES = ("low", "medium", "high")
 PRIORITY_COLOURS = {"low": "cyan", "medium": "yellow", "high": "red"}
 
 console = Console()
+_task_repository: AzureTableTaskRepository | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -41,33 +52,37 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 
-def load_tasks() -> list[dict]:
-    """JSON 저장 파일에서 작업을 불러옵니다.
+def get_task_repository() -> AzureTableTaskRepository:
+    """Return the process-wide Azure Table task repository."""
+    global _task_repository
+    if _task_repository is None:
+        _task_repository = AzureTableTaskRepository()
+    return _task_repository
 
-    반환값:
-        작업 딕셔너리 목록입니다. 파일이 없거나 파싱할 수 없으면 빈 목록을 반환합니다.
-    """
-    if not TASKS_FILE.exists():
-        return []
-    try:
-        with TASKS_FILE.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data, list):
-            raise ValueError("tasks file must contain a JSON array")
-        return data
-    except (json.JSONDecodeError, OSError, ValueError):
-        console.print("[red]Warning: Could not read tasks file. Starting fresh.[/red]")
-        return []
+
+def load_tasks() -> list[dict]:
+    """Load all tasks from Azure Table Storage."""
+    return [dict(task) for task in get_task_repository().list()]
 
 
 def save_tasks(tasks: list[dict]) -> None:
-    """작업을 JSON 저장 파일에 저장합니다.
+    """Synchronize a complete task list to Azure Table Storage.
 
-    인수:
-        tasks: 저장할 작업 딕셔너리 목록입니다.
+    This compatibility helper preserves the previous public API. CLI mutations
+    use repository CRUD methods directly to avoid rewriting unrelated tasks.
     """
-    with TASKS_FILE.open("w", encoding="utf-8") as f:
-        json.dump(tasks, f, indent=2)
+    repository = get_task_repository()
+    existing_ids = {task["id"] for task in repository.list()}
+    desired_ids = {task["id"] for task in tasks}
+
+    for task in tasks:
+        if task["id"] in existing_ids:
+            repository.update(cast(Task, task))
+        else:
+            repository.create(cast(NewTask, task))
+
+    for task_id in existing_ids - desired_ids:
+        repository.delete(task_id)
 
 
 def next_id(tasks: list[dict]) -> int:
@@ -172,6 +187,10 @@ def highlight_matches(value: str, keyword: str) -> Text:
 @click.group()
 def cli() -> None:
     """터미널에서 할 일 목록을 관리하는 작업 관리자입니다."""
+    try:
+        get_task_repository()
+    except (StorageConfigurationError, TaskStorageError) as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @cli.command()
@@ -198,7 +217,20 @@ def cli() -> None:
     metavar="TAG",
     help="추가할 태그 (여러 번 지정할 수 있음).",
 )
-def add(name: str, priority: str, description: str, due: str | None, tag: tuple[str, ...]) -> None:
+@click.option(
+    "--no-ai",
+    is_flag=True,
+    default=False,
+    help="Azure OpenAI 자동 태그 추천을 건너뜁니다.",
+)
+def add(
+    name: str,
+    priority: str,
+    description: str,
+    due: str | None,
+    tag: tuple[str, ...],
+    no_ai: bool,
+) -> None:
     """새 작업을 추가합니다.
 
     NAME은 추가할 작업의 제목입니다.
@@ -223,24 +255,36 @@ def add(name: str, priority: str, description: str, due: str | None, tag: tuple[
         console.print(f"[red]Error: A task named '{name}' already exists.[/red]")
         sys.exit(1)
 
-    task: dict = {
-        "id": next_id(tasks),
+    tags = list(tag)
+    suggested_tag: str | None = None
+    if not tags and not no_ai:
+        try:
+            suggested_tag = suggest_tag(name, description)
+        except TagSuggestionError:
+            console.print(
+                "[yellow]Warning: AI tag suggestion failed; saving the task without a tag.[/yellow]"
+            )
+        if suggested_tag:
+            tags.append(suggested_tag)
+
+    new_task: NewTask = {
         "name": name,
         "description": description.strip(),
         "priority": priority,
-        "tags": list(tag),
+        "tags": tags,
         "due_date": due,
         "done": False,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
-    tasks.append(task)
-    save_tasks(tasks)
+    task = get_task_repository().create(new_task)
 
     priority_colour = PRIORITY_COLOURS[priority]
     console.print(
         f"[green]Added task #[bold]{task['id']}[/bold][/green]: {name} "
         f"[[{priority_colour}]{priority}[/{priority_colour}]]"
     )
+    if suggested_tag:
+        console.print(f"[cyan]AI suggested tag: {suggested_tag}[/cyan]")
 
 
 @cli.command(name="list")
@@ -376,8 +420,8 @@ def complete(task_id: int) -> None:
 
     TASK_ID는 완료 처리할 작업의 숫자 ID입니다.
     """
-    tasks = load_tasks()
-    task = find_task(tasks, task_id)
+    repository = get_task_repository()
+    task = repository.get(task_id)
 
     if task is None:
         console.print(f"[red]Error: No task found with ID {task_id}.[/red]")
@@ -388,7 +432,7 @@ def complete(task_id: int) -> None:
         return
 
     task["done"] = True
-    save_tasks(tasks)
+    repository.update(task)
     console.print(f"[green]Task #{task_id} marked as complete.[/green]")
 
 
@@ -428,8 +472,8 @@ def edit(
 
     TASK_ID는 수정할 작업의 숫자 ID입니다.
     """
-    tasks = load_tasks()
-    task = find_task(tasks, task_id)
+    repository = get_task_repository()
+    task = repository.get(task_id)
 
     if task is None:
         console.print(f"[red]Error: No task found with ID {task_id}.[/red]")
@@ -478,7 +522,7 @@ def edit(
         console.print("[yellow]No changes specified. Use --help to see options.[/yellow]")
         return
 
-    save_tasks(tasks)
+    repository.update(task)
     console.print(f"[green]Task #{task_id} updated.[/green]")
 
 
@@ -489,14 +533,10 @@ def delete(task_id: int) -> None:
 
     TASK_ID는 삭제할 작업의 숫자 ID입니다.
     """
-    tasks = load_tasks()
-    updated = [t for t in tasks if t["id"] != task_id]
-
-    if len(updated) == len(tasks):
+    if not get_task_repository().delete(task_id):
         console.print(f"[red]Error: No task found with ID {task_id}.[/red]")
         sys.exit(1)
 
-    save_tasks(updated)
     console.print(f"[green]Task #{task_id} deleted.[/green]")
 
 

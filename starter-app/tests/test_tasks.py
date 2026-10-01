@@ -1,6 +1,5 @@
 """Unit tests for the Task Manager CLI."""
 
-import json
 from datetime import date
 from pathlib import Path
 
@@ -23,35 +22,49 @@ from app import (
 
 
 # ---------------------------------------------------------------------------
-# Storage helpers
+# Repository compatibility helpers
 # ---------------------------------------------------------------------------
 
 
 class TestLoadTasks:
-    def test_returns_empty_list_when_file_missing(self, isolated_tasks_file: Path) -> None:
+    def test_returns_empty_list_when_storage_empty(self) -> None:
         assert load_tasks() == []
 
-    def test_loads_existing_tasks(self, isolated_tasks_file: Path) -> None:
-        tasks = [{"id": 1, "name": "Test", "done": False}]
-        isolated_tasks_file.write_text(json.dumps(tasks), encoding="utf-8")
-        assert load_tasks() == tasks
-
-    def test_returns_empty_list_on_corrupt_file(self, isolated_tasks_file: Path) -> None:
-        isolated_tasks_file.write_text("not-json", encoding="utf-8")
-        assert load_tasks() == []
-
-    def test_returns_empty_list_when_file_contains_object(self, isolated_tasks_file: Path) -> None:
-        isolated_tasks_file.write_text(json.dumps({"key": "value"}), encoding="utf-8")
-        assert load_tasks() == []
-
-
-class TestSaveTasks:
-    def test_saves_and_reloads(self, isolated_tasks_file: Path) -> None:
-        tasks = [{"id": 1, "name": "Test", "done": False}]
+    def test_loads_existing_tasks(self) -> None:
+        tasks = [
+            {
+                "id": 1,
+                "name": "Test",
+                "description": "",
+                "priority": "medium",
+                "tags": [],
+                "due_date": None,
+                "done": False,
+                "created_at": "2026-10-01T09:00:00",
+            }
+        ]
         save_tasks(tasks)
         assert load_tasks() == tasks
 
-    def test_saves_empty_list(self, isolated_tasks_file: Path) -> None:
+
+class TestSaveTasks:
+    def test_saves_and_reloads(self) -> None:
+        tasks = [
+            {
+                "id": 1,
+                "name": "Test",
+                "description": "",
+                "priority": "medium",
+                "tags": [],
+                "due_date": None,
+                "done": False,
+                "created_at": "2026-10-01T09:00:00",
+            }
+        ]
+        save_tasks(tasks)
+        assert load_tasks() == tasks
+
+    def test_saves_empty_list(self) -> None:
         save_tasks([])
         assert load_tasks() == []
 
@@ -214,12 +227,39 @@ class TestSearchCommand:
         assert "Buy groceries" not in description_result.output
 
     def test_search_sorts_by_descending_priority(
-        self, runner: CliRunner, isolated_tasks_file: Path
+        self, runner: CliRunner
     ) -> None:
         tasks = [
-            {"id": 1, "name": "Low keyword", "description": "", "priority": "low", "done": False},
-            {"id": 2, "name": "High keyword", "description": "", "priority": "high", "done": False},
-            {"id": 3, "name": "Medium keyword", "description": "", "priority": "medium", "done": False},
+            {
+                "id": 1,
+                "name": "Low keyword",
+                "description": "",
+                "priority": "low",
+                "tags": [],
+                "due_date": None,
+                "done": False,
+                "created_at": "2026-10-01T09:00:00",
+            },
+            {
+                "id": 2,
+                "name": "High keyword",
+                "description": "",
+                "priority": "high",
+                "tags": [],
+                "due_date": None,
+                "done": False,
+                "created_at": "2026-10-01T09:01:00",
+            },
+            {
+                "id": 3,
+                "name": "Medium keyword",
+                "description": "",
+                "priority": "medium",
+                "tags": [],
+                "due_date": None,
+                "done": False,
+                "created_at": "2026-10-01T09:02:00",
+            },
         ]
         save_tasks(tasks)
 
