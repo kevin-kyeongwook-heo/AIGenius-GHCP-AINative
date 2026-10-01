@@ -28,9 +28,10 @@ Copilot을 위해 잘 작성된 이슈에는 다음 요소가 포함됩니다:
 
 ## 실습 과제 (Your Task)
 
-1. 이 Repo의 **Issues** 탭으로 이동합니다. (**Issues** 탭이 안보이는 경우 Github Repository 페이지 상단 메뉴 **Settings** > **Features** > **Issues** 체크박스를 Enable 한다)
-2. **New issue** 를 클릭하고 **Feature Request** 템플릿을 선택합니다.
-3. 다음 기능 중 하나에 대한 이슈를 작성하세요:
+1. 이 Repo의 **Issues** 탭으로 이동합니다.
+   **Issues** 탭이 안보이는 경우 Github Repository 페이지 상단 메뉴 **Settings** 의 **General** 페이지에서 **Features** > **Issues** 체크박스를 Enable 한다.
+3. **New issue** 를 클릭하고 **Feature Request** 템플릿을 선택합니다.
+4. 다음 기능 중 하나에 대한 이슈를 작성하세요:
 
    **Option A:** 태스크 저장소를 Azure Table Storage로 마이그레이션
    > 현재 이 앱은 태스크를 로컬 JSON 파일에 저장합니다. 저장 계층(storage layer)을 Azure Table Storage로 마이그레이션하여 태스크를 클라우드에 영속화하세요. `azure-data-tables` 를 사용하고 자격 증명은 환경 변수에서 로드합니다. CLI 명령들은 현재와 동일하게 동작해야 합니다.
@@ -44,8 +45,8 @@ Copilot을 위해 잘 작성된 이슈에는 다음 요소가 포함됩니다:
    **Option D:** 반복(recurring) 태스크 추가
    > 사용자는 `--repeat daily|weekly|monthly` 로 태스크를 반복 태스크로 표시할 수 있어야 합니다. 반복 태스크가 완료되면 다음 마감일이 계산된 새 복사본이 자동으로 생성되어야 합니다.
 
-4. 템플릿의 **모든 섹션**을 채우세요. 빈 섹션이 남지 않도록 하세요.
-5. 이슈를 제출합니다.
+5. 템플릿의 **모든 섹션**을 채우세요. 빈 섹션이 남지 않도록 하세요.
+6. 이슈를 제출합니다.
 
 ---
 
