@@ -142,6 +142,15 @@ class TestAddCommand:
         ids = [t["id"] for t in load_tasks()]
         assert ids == [1, 2]
 
+    def test_add_duplicate_name_fails_without_adding_task(self, runner: CliRunner) -> None:
+        first_result = runner.invoke(cli, ["add", "Task"])
+        duplicate_result = runner.invoke(cli, ["add", "Task"])
+
+        assert first_result.exit_code == 0
+        assert duplicate_result.exit_code == 1
+        assert "already exists" in duplicate_result.output
+        assert len(load_tasks()) == 1
+
 
 class TestListCommand:
     def test_list_empty(self, runner: CliRunner) -> None:
